@@ -26,6 +26,11 @@ jobs:
         run: npm test
       - name: Scenario matrix (local backend)
         run: node dist/cli.js run
+      # No API key in CI: the Claude adapter runs against a deterministic mock model.
+      - name: Model eval wiring (mock model)
+        run: |
+          node dist/cli.js eval --mock obedient --trials 2
+          node dist/cli.js eval --mock resistant --trials 2
       - name: Scenario matrix (docker backend)
         run: node dist/cli.js run --backend docker --trace-dir traces
       - uses: actions/upload-artifact@v4
