@@ -1,0 +1,13 @@
+export { InstructionFollowingAgent } from './agents/injectable.js';
+export { ScriptedAgent, type Step, type StepRecord } from './agents/scripted.js';
+export type { Agent, AgentContext } from './agents/types.js';
+export { DockerBackend, type DockerBackendOptions } from './backends/docker.js';
+export { LocalBackend } from './backends/local.js';
+export type { Backend, CommandResult } from './backends/types.js';
+export { type Canary, CanaryDetector, createCanaries } from './canary.js';
+export { type Fetcher, liveFetcher, stubFetcher, ToolGateway } from './gateway.js';
+export { loadPolicyFile, parsePolicy, type Policy, PolicyEngine, type PolicyInput } from './policy.js';
+export { type RunReport, runScenario, type Scenario } from './runner.js';
+export { baselinePolicy, scenarios } from './scenarios/index.js';
+export { Trace, type TraceEvent } from './trace.js';
+export type { RunStatus, ToolCall, ToolResult, Violation, ViolationType } from './types.js';

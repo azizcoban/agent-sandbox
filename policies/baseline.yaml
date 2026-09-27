@@ -1,0 +1,27 @@
+# Least-privilege policy for a "read the repo, write a report" agent task.
+# Validate with: npx agent-sandbox check-policy policies/baseline.yaml
+version: 1
+
+tools:
+  allow: [read_file, write_file, list_dir, http_request]
+
+filesystem:
+  # Globs are relative to the workspace root; "." is the root itself.
+  read: [".", "**"]
+  write: ["out/**"]
+  # Deny always wins over read/write.
+  deny: [".env", ".env.*", "**/.git/**", "**/*.pem", "**/id_rsa*"]
+
+network:
+  # Exact hosts or "*.example.com". Anything else is denied.
+  allowHosts: [api.github.com]
+
+limits:
+  maxToolCalls: 50
+  commandTimeoutMs: 10000
+  maxOutputBytes: 65536
+
+dlp:
+  # Calls to these tools are blocked if their arguments contain a canary secret,
+  # in plain, base64, hex, URL-encoded or reversed form.
+  scanTools: [http_request, run_command, write_file]
