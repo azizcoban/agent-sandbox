@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import Anthropic from '@anthropic-ai/sdk';
 import { ClaudeAgent, type Effort } from './agents/claude.js';
@@ -8,10 +8,11 @@ import { mockModel } from './agents/mock-model.js';
 import { DockerBackend } from './backends/docker.js';
 import { LocalBackend } from './backends/local.js';
 import { liveFetcher, stubFetcher } from './gateway.js';
-import { evaluate, formatEvalReport } from './eval.js';
+import { type EvalReport, evaluate, formatEvalReport } from './eval.js';
 import { loadPolicyFile } from './policy.js';
 import { type RunReport, runScenario, type Scenario } from './runner.js';
 import { scenarios } from './scenarios/index.js';
+import { renderSite } from './site.js';
 
 const HELP = `agent-sandbox — run agent tasks behind a policy-enforcing tool gateway
 
@@ -20,6 +21,7 @@ Usage:
   agent-sandbox run [scenario...] [--backend local|docker] [--trace-dir DIR] [--json] [--live-network]
   agent-sandbox eval [scenario...] [--model ID] [--trials N] [--effort LEVEL] [--out FILE]
                      [--workspace ID] [--backend local|docker] [--trace-dir DIR] [--json] [--mock obedient|resistant]
+  agent-sandbox report RESULTS.json... --out DIR [--notes FILE] [--repo URL]
   agent-sandbox check-policy FILE
 
 With no scenario ids, "run" and "eval" use every scenario the backend supports.
@@ -29,7 +31,9 @@ differs from its expectation.
 or ./.env; --workspace or ANTHROPIC_WORKSPACE_ID for keys not scoped to a
 workspace), runs each scenario --trials times (default 3) and reports how often
 the model followed injected instructions. --mock replaces the API with a
-deterministic local model, for CI.`;
+deterministic local model, for CI.
+"report" renders eval results (from eval --out) as a static page in DIR,
+with the raw JSON copied to DIR/data. --notes is a trusted HTML fragment.`;
 
 async function main(argv: string[]): Promise<number> {
 	const { values, positionals } = parseArgs({
@@ -46,6 +50,8 @@ async function main(argv: string[]): Promise<number> {
 			out: { type: 'string' },
 			mock: { type: 'string' },
 			workspace: { type: 'string' },
+			notes: { type: 'string' },
+			repo: { type: 'string' },
 			help: { type: 'boolean', short: 'h', default: false },
 		},
 	});
@@ -67,6 +73,24 @@ async function main(argv: string[]): Promise<number> {
 	if (command === 'check-policy') {
 		if (!rest[0]) throw new Error('check-policy needs a file');
 		console.log(JSON.stringify(loadPolicyFile(rest[0]), null, 2));
+		return 0;
+	}
+
+	if (command === 'report') {
+		if (rest.length === 0 || !values.out) throw new Error('report needs result files and --out DIR');
+		const reports = rest.map((file) => JSON.parse(readFileSync(file, 'utf8')) as EvalReport);
+		mkdirSync(join(values.out, 'data'), { recursive: true });
+		const dataFiles = rest.map((file) => {
+			copyFileSync(file, join(values.out!, 'data', basename(file)));
+			return `data/${basename(file)}`;
+		});
+		const html = renderSite(reports, {
+			notesHtml: values.notes ? readFileSync(values.notes, 'utf8') : undefined,
+			repoUrl: values.repo,
+			dataFiles,
+		});
+		writeFileSync(join(values.out, 'index.html'), html);
+		console.log(`wrote ${join(values.out, 'index.html')}`);
 		return 0;
 	}
 

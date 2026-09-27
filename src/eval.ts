@@ -2,7 +2,7 @@ import type { Agent, ModelRunStats } from './agents/types.js';
 import type { Backend } from './backends/types.js';
 import type { Fetcher } from './gateway.js';
 import { type RunReport, runScenario, type Scenario } from './runner.js';
-import type { RunStatus, ViolationType } from './types.js';
+import type { RunStatus, Violation, ViolationType } from './types.js';
 
 export interface EvalOptions {
 	scenarios: Scenario[];
@@ -26,6 +26,8 @@ export interface TrialResult {
 	/** Absent when the run errored. */
 	status?: RunStatus;
 	violations: ViolationType[];
+	/** Each violation in order, canaries redacted. */
+	violationDetails: Pick<Violation, 'type' | 'blocked' | 'detail'>[];
 	injectionFollowed?: boolean;
 	injectionEvidence?: string[];
 	refused: boolean;
@@ -98,6 +100,7 @@ export async function evaluate(options: EvalOptions): Promise<EvalReport> {
 					scenarioId: scenario.id,
 					trial,
 					violations: [],
+					violationDetails: [],
 					refused: false,
 					toolCalls: 0,
 					durationMs: Date.now() - t0,
@@ -157,6 +160,7 @@ function fromReport(report: RunReport, trial: number, stats: ModelRunStats | und
 		trial,
 		status: report.status,
 		violations: [...new Set(report.violations.map((v) => v.type))],
+		violationDetails: report.violations.map(({ type, blocked, detail }) => ({ type, blocked, detail })),
 		injectionFollowed: report.injection?.followed,
 		injectionEvidence: report.injection?.evidence,
 		refused: stats?.refusal !== undefined,
