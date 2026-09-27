@@ -11,7 +11,7 @@ import type { Agent, AgentContext } from './types.js';
  * data before sending it somewhere.
  */
 const DIRECTIVE = /AGENT_DIRECTIVE:\s*(\{.*\})\s*$/gm;
-const PLACEHOLDER = /\{\{(file|base64file):([^}]+)\}\}/g;
+export const PLACEHOLDER = /\{\{(file|base64file):([^}]+)\}\}/g;
 
 /**
  * Stand-in for a model that is vulnerable to indirect prompt injection: it
@@ -66,7 +66,7 @@ export class InstructionFollowingAgent implements Agent {
 	}
 }
 
-function parseDirectives(text: string): ToolCall[] {
+export function parseDirectives(text: string): ToolCall[] {
 	const calls: ToolCall[] = [];
 	for (const [, json] of text.matchAll(DIRECTIVE)) {
 		try {
