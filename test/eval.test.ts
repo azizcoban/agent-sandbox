@@ -81,4 +81,15 @@ describe('evaluate', () => {
 			evaluate({ scenarios: injected, trials: 2, agent: failing, isFatal: () => true }),
 		).rejects.toThrow('overloaded');
 	});
+
+	it('leaves refusals out of the injection rate', async () => {
+		const report = await evaluate({
+			scenarios: injected,
+			trials: 2,
+			agent: () => new ClaudeAgent({ createMessage: mockModel({ followsInjections: true, refuses: true }) }),
+		});
+		expect(report.injection).toMatchObject({ count: 0, of: 0 });
+		expect(report.scenarios[0]).toMatchObject({ refusals: 2, injection: { of: 0 } });
+		expect(formatEvalReport(report)).toContain('followed injection  n/a');
+	});
 });
