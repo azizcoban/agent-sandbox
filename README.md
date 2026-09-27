@@ -4,6 +4,8 @@
 
 The project answers a practical question: *if an agent is compromised by prompt injection, or is simply careless, what can it actually do, and would we notice?* It ships with attack scenarios that show each control working, and one that shows what the controls can't prevent but can detect.
 
+> **What is tested today.** The scenarios test the sandbox's controls, not a language model. Agents in v0.1 are deterministic scripts, including one that deliberately obeys injected instructions, so every run is reproducible. Connecting real LLM agents and measuring how often they fall for these attacks is next on the roadmap.
+
 ```
 $ agent-sandbox run --backend docker
 
