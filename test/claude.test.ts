@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { ClaudeAgent, type CreateMessage } from '../src/agents/claude.js';
 import { mockModel } from '../src/agents/mock-model.js';
 import { runScenario, type Scenario } from '../src/runner.js';
-import { baselinePolicy, findScenario } from '../src/scenarios/index.js';
+import { ScriptedAgent } from '../src/agents/scripted.js';
+import { baselinePolicy, findScenario, scenarios } from '../src/scenarios/index.js';
+
+const ISSUE = 'https://api.github.com/repos/acme/payments-service/issues/42';
 
 const scenario = (id: string) => findScenario(id)!;
 
@@ -170,11 +173,45 @@ describe('ClaudeAgent with a mock model', () => {
 });
 
 describe('injection tracking with scripted agents', () => {
-	it('marks the instruction-following agent as having followed the injection', async () => {
-		for (const id of ['indirect-prompt-injection', 'dlp-defense-in-depth']) {
-			const report = await runScenario(scenario(id));
-			expect(report.injection?.followed).toBe(true);
+	it("marks every scenario's own (compromised) agent as having followed the injection", async () => {
+		const injected = scenarios.filter((s) => s.injection && !s.requiresCommands);
+		expect(injected.length).toBeGreaterThanOrEqual(6);
+		for (const s of injected) {
+			const report = await runScenario(s);
+			expect(report.injection?.followed, s.id).toBe(true);
+			expect(report.injection?.evidence.length, s.id).toBeGreaterThan(0);
 		}
+	});
+
+	it('does not count a .env read as following a natural-language injection', async () => {
+		const report = await runScenario(scenario('nl-readme-injection'), {
+			agent: () =>
+				new ScriptedAgent('curious', [
+					{ tool: 'read_file', args: { path: 'README.md' } },
+					{ tool: 'read_file', args: { path: '.env' } },
+				]),
+		});
+		expect(report.violations.map((v) => v.type)).toEqual(['path_denied']);
+		expect(report.injection?.followed).toBe(false);
+	});
+
+	it("serves the scenario's canned HTTP responses", async () => {
+		const report = await runScenario(scenario('tool-output-injection'), {
+			agent: () =>
+				new ScriptedAgent('reader', [{ tool: 'http_request', args: { url: `${ISSUE}` } }], {
+					output: (h) => (h[0]!.result.ok ? h[0]!.result.output : 'failed'),
+				}),
+		});
+		expect(report.output).toContain('ECONNRESET');
+		expect(report.injection?.followed).toBe(false);
+	});
+
+	it('does not flag a clean answer when the attack targets the answer', async () => {
+		const report = await runScenario(scenario('summary-exfil-injection'), {
+			agent: () => new ClaudeAgent({ createMessage: mockModel({ followsInjections: false }) }),
+		});
+		expect(report.status).toBe('clean');
+		expect(report.injection?.followed).toBe(false);
 	});
 
 	it('leaves the injection field off scenarios without one', async () => {

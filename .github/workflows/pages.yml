@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
       # Renders the committed eval results; no model is called here.
       - run: >
-          node dist/cli.js report results/claude-opus-5.json results/claude-sonnet-5.json
+          node dist/cli.js report results/claude-*.json
           --out _site --notes results/findings.html
           --repo ${{ github.server_url }}/${{ github.repository }}
       - uses: actions/upload-pages-artifact@v3

@@ -24,7 +24,7 @@ describe('renderSite', () => {
 		expect(html).toContain('<i class="swatch s2"></i>mock-b');
 		expect(html.match(/<details class="run"/g)).toHaveLength(injected.length * 2 * 2);
 		expect(html).toContain('followed injection</span>');
-		expect(html).toContain('<a href="data/b.json">mock-b</a>');
+		expect(html).toContain('<a href="data/b.json">b.json</a>');
 	});
 
 	it('escapes model output, which is untrusted', async () => {
