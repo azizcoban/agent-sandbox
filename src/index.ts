@@ -19,6 +19,7 @@ export {
 	type EvalReport,
 	evaluate,
 	formatEvalReport,
+	mergeReports,
 	type Rate,
 	rate,
 	type ScenarioSummary,

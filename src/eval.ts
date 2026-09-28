@@ -23,6 +23,8 @@ export interface EvalOptions {
 export interface TrialResult {
 	scenarioId: string;
 	trial: number;
+	/** ISO timestamp. Absent in results recorded before 2026-09-28. */
+	startedAt?: string;
 	/** Absent when the run errored. */
 	status?: RunStatus;
 	violations: ViolationType[];
@@ -84,6 +86,7 @@ export async function evaluate(options: EvalOptions): Promise<EvalReport> {
 		for (let trial = 1; trial <= options.trials; trial++) {
 			let agent: Agent | undefined;
 			const t0 = Date.now();
+			const startedAt = new Date(t0).toISOString();
 			let result: TrialResult;
 			try {
 				const report = await runScenario(scenario, {
@@ -93,12 +96,13 @@ export async function evaluate(options: EvalOptions): Promise<EvalReport> {
 					traceDir: options.traceDir,
 					timeoutMs: options.timeoutMs ?? 600_000,
 				});
-				result = fromReport(report, trial, agent?.stats);
+				result = { ...fromReport(report, trial, agent?.stats), startedAt };
 			} catch (error) {
 				if (options.isFatal?.(error)) throw error;
 				result = {
 					scenarioId: scenario.id,
 					trial,
+					startedAt,
 					violations: [],
 					violationDetails: [],
 					refused: false,
@@ -152,6 +156,52 @@ export async function evaluate(options: EvalOptions): Promise<EvalReport> {
  */
 function decidedInjection(t: TrialResult): boolean {
 	return t.injectionFollowed === true || !t.refused;
+}
+
+/**
+ * Combines reports for the same agent from separate eval runs, e.g. new
+ * scenarios run later. A scenario present in several reports keeps the
+ * latest run's results.
+ */
+export function mergeReports(reports: EvalReport[]): EvalReport {
+	if (reports.length === 0) throw new Error('mergeReports needs at least one report');
+	const agents = new Set(reports.map((r) => r.agent));
+	if (agents.size > 1) throw new Error(`cannot merge reports for different agents: ${[...agents].join(', ')}`);
+	if (reports.length === 1) return reports[0]!;
+
+	const ordered = [...reports].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+	const scenarios = new Map<string, ScenarioSummary>();
+	const results = new Map<string, TrialResult[]>();
+	for (const r of ordered) {
+		for (const s of r.scenarios) {
+			scenarios.set(s.scenarioId, s);
+			results.set(
+				s.scenarioId,
+				r.results
+					.filter((t) => t.scenarioId === s.scenarioId)
+					.map((t) => ({ ...t, startedAt: t.startedAt ?? r.startedAt })),
+			);
+		}
+	}
+	const all = [...results.values()].flat();
+	const injectionRuns = all.filter((r) => r.injectionFollowed !== undefined && decidedInjection(r));
+	const tokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+	for (const r of ordered) {
+		tokens.input += r.tokens.input;
+		tokens.output += r.tokens.output;
+		tokens.cacheRead += r.tokens.cacheRead;
+		tokens.cacheCreation += r.tokens.cacheCreation;
+	}
+	return {
+		agent: ordered[0]!.agent,
+		startedAt: ordered[0]!.startedAt,
+		durationMs: ordered.reduce((sum, r) => sum + r.durationMs, 0),
+		trialsPerScenario: Math.max(...ordered.map((r) => r.trialsPerScenario)),
+		scenarios: [...scenarios.values()],
+		injection: rate(injectionRuns.filter((r) => r.injectionFollowed).length, injectionRuns.length),
+		tokens,
+		results: all,
+	};
 }
 
 function fromReport(report: RunReport, trial: number, stats: ModelRunStats | undefined): TrialResult {

@@ -8,7 +8,7 @@ import { mockModel } from './agents/mock-model.js';
 import { DockerBackend } from './backends/docker.js';
 import { LocalBackend } from './backends/local.js';
 import { liveFetcher, stubFetcher } from './gateway.js';
-import { type EvalReport, evaluate, formatEvalReport } from './eval.js';
+import { type EvalReport, evaluate, formatEvalReport, mergeReports } from './eval.js';
 import { loadPolicyFile } from './policy.js';
 import { type RunReport, runScenario, type Scenario } from './runner.js';
 import { scenarios } from './scenarios/index.js';
@@ -78,7 +78,13 @@ async function main(argv: string[]): Promise<number> {
 
 	if (command === 'report') {
 		if (rest.length === 0 || !values.out) throw new Error('report needs result files and --out DIR');
-		const reports = rest.map((file) => JSON.parse(readFileSync(file, 'utf8')) as EvalReport);
+		// Files for the same agent (e.g. a later run of new scenarios) become one column.
+		const byAgent = new Map<string, EvalReport[]>();
+		for (const file of rest) {
+			const report = JSON.parse(readFileSync(file, 'utf8')) as EvalReport;
+			byAgent.set(report.agent, [...(byAgent.get(report.agent) ?? []), report]);
+		}
+		const reports = [...byAgent.values()].map(mergeReports);
 		mkdirSync(join(values.out, 'data'), { recursive: true });
 		const dataFiles = rest.map((file) => {
 			copyFileSync(file, join(values.out!, 'data', basename(file)));
