@@ -30,5 +30,5 @@ export { loadPolicyFile, parsePolicy, type Policy, PolicyEngine, type PolicyInpu
 export { type InjectionGoal, type RunReport, runScenario, type Scenario } from './runner.js';
 export { baselinePolicy, scenarios } from './scenarios/index.js';
 export { renderSite, type SiteOptions } from './site.js';
-export { Trace, type TraceEvent } from './trace.js';
+export { buildTimeline, type TimelineStep, Trace, type TraceEvent } from './trace.js';
 export type { RunStatus, ToolCall, ToolResult, Violation, ViolationType } from './types.js';
