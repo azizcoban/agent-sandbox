@@ -1,4 +1,5 @@
 import type { EvalReport, Rate, ScenarioSummary, TrialResult } from './eval.js';
+import type { TimelineStep } from './trace.js';
 import type { RunStatus } from './types.js';
 
 export interface SiteOptions {
@@ -251,8 +252,23 @@ function runCard(model: string, slot: number, t: TrialResult, titles: Map<string
 			: '<p class="muted">No final answer.</p>';
 	return `<details class="run" data-model="${esc(model)}" data-scenario="${esc(t.scenarioId)}">
 		<summary><span class="run-id"><i class="swatch s${slot}"></i>${esc(model)} · ${esc(t.scenarioId)} #${t.trial}</span><span class="st ${status}">${status === 'errored' ? 'errored' : `${STATUS_ICON[status as RunStatus]} ${status}`}</span>${flags}<span class="muted">${t.toolCalls} tool calls</span></summary>
-		<div class="run-body"><p class="muted">${esc(titles.get(t.scenarioId) ?? '')}</p>${violations}<h4>Final answer</h4>${output}</div>
+		<div class="run-body"><p class="muted">${esc(titles.get(t.scenarioId) ?? '')}</p>${timeline(t.timeline)}${violations}<h4>Final answer</h4>${output}</div>
 	</details>`;
+}
+
+const STEP_ICON = { ok: '✓', blocked: '⛔', detected: '▲', error: '✕' } as const;
+
+function timeline(steps: TimelineStep[] | undefined): string {
+	if (!steps?.length) return '';
+	const rows = steps
+		.map((step) => {
+			const index = step.n ? `<span class="tl-n">${step.n}</span>` : '<span class="tl-n tl-post">post</span>';
+			const summary = step.summary ? ` <span class="tl-summary">${esc(step.summary)}</span>` : '';
+			const detail = step.detail ? `<span class="tl-detail">${esc(step.detail)}</span>` : '';
+			return `<li class="tl-step tl-${step.outcome}">${index}<span class="tl-icon" aria-hidden="true">${STEP_ICON[step.outcome]}</span><span class="tl-main"><span class="tl-label">${esc(step.label)}</span>${summary}</span>${detail}</li>`;
+		})
+		.join('');
+	return `<h4>Timeline</h4><ol class="timeline">${rows}</ol>`;
 }
 
 function refusedNote(s: ScenarioSummary): string {
@@ -385,6 +401,21 @@ select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid 
 .flag.bad { background: var(--bad-bg); color: var(--bad-ink); border-color: transparent; }
 .run-body { padding: 0 0 16px 20px; }
 .violations { margin: 8px 0; padding-left: 18px; font-size: 14px; }
+.timeline { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.tl-step { display: grid; grid-template-columns: 2.5ch 1.4em 1fr; gap: 4px 8px; align-items: baseline; padding: 4px 8px; border-radius: 6px; background: var(--page); font-size: 13px; }
+.tl-n { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; font-size: 12px; }
+.tl-post { font-variant-numeric: normal; font-size: 11px; }
+.tl-icon { text-align: center; }
+.tl-main { grid-column: 3; overflow-wrap: anywhere; }
+.tl-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.tl-summary { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--ink-2); }
+.tl-detail { grid-column: 3; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.tl-ok .tl-icon { color: var(--good); }
+.tl-blocked .tl-icon { color: #9a6700; }
+.tl-detected .tl-icon, .tl-error .tl-icon { color: var(--critical); }
+.tl-detected, .tl-error { background: var(--bad-bg); }
+:root[data-theme="dark"] .tl-blocked .tl-icon { color: var(--warning); }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) .tl-blocked .tl-icon { color: var(--warning); } }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--page); border: 1px solid var(--ring); border-radius: 8px; padding: 12px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; max-height: 420px; overflow: auto; margin: 0; }
 .method ul { padding-left: 20px; color: var(--ink-2); }
 #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--page); font-size: 13px; padding: 6px 10px; border-radius: 6px; max-width: 280px; }

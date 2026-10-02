@@ -8,7 +8,7 @@ import type { Backend } from './backends/types.js';
 import { CanaryDetector, createCanaries, renderDotenv } from './canary.js';
 import { type Fetcher, ToolGateway } from './gateway.js';
 import { type PolicyInput, PolicyEngine, parsePolicy } from './policy.js';
-import { Trace } from './trace.js';
+import { buildTimeline, type TimelineStep, Trace } from './trace.js';
 import type { RunStatus, ToolCall, Violation, ViolationType } from './types.js';
 
 /**
@@ -77,6 +77,8 @@ export interface RunReport {
 	durationMs: number;
 	/** Agent's final answer with canary values redacted. */
 	output: string;
+	/** Per-tool-call timeline, redacted. */
+	timeline: TimelineStep[];
 	traceFile?: string;
 }
 
@@ -204,6 +206,7 @@ export async function runScenario(scenario: Scenario, options: RunOptions = {}):
 			toolCalls: gateway.toolCalls,
 			durationMs: Date.now() - started,
 			output: detector.redact(output),
+			timeline: buildTimeline(trace.events),
 			traceFile,
 			...(injection ? { injection } : {}),
 		};

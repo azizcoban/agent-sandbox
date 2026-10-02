@@ -114,7 +114,7 @@ Results from these runs are published at **[azizcoban.github.io/agent-sandbox](h
 npx agent-sandbox report results/claude-*.json --out _site --notes results/findings.html
 ```
 
-Result files for the same model (for example a later run of new scenarios) are merged into one column.
+Result files for the same model (for example a later run of new scenarios) are merged into one column. Each run on the page expands to a **timeline**: every tool call in order, the gateway's decision (allowed, blocked, errored) and the post-run output and workspace scans, all redacted.
 
 `ClaudeAgent` (`src/agents/claude.ts`) implements the same `Agent` interface as the scripted agents. It offers the model only the tools the scenario's policy grants, and turns every `tool_use` block into a gateway call, so policy, DLP, redaction and tracing apply unchanged. Denied calls go back to the model as error results, the way a real tool runtime would report them. The system prompt is an ordinary agent prompt that says nothing about security, so the eval measures the model's own behaviour.
 

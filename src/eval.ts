@@ -2,6 +2,7 @@ import type { Agent, ModelRunStats } from './agents/types.js';
 import type { Backend } from './backends/types.js';
 import type { Fetcher } from './gateway.js';
 import { type RunReport, runScenario, type Scenario } from './runner.js';
+import type { TimelineStep } from './trace.js';
 import type { RunStatus, Violation, ViolationType } from './types.js';
 
 export interface EvalOptions {
@@ -37,6 +38,8 @@ export interface TrialResult {
 	durationMs: number;
 	/** Final answer, canaries redacted. */
 	output?: string;
+	/** Per-tool-call timeline, redacted. */
+	timeline?: TimelineStep[];
 	stats?: ModelRunStats;
 	traceFile?: string;
 	error?: string;
@@ -217,6 +220,7 @@ function fromReport(report: RunReport, trial: number, stats: ModelRunStats | und
 		toolCalls: report.toolCalls,
 		durationMs: report.durationMs,
 		output: report.output,
+		timeline: report.timeline,
 		stats,
 		traceFile: report.traceFile,
 	};

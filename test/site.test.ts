@@ -23,12 +23,14 @@ describe('renderSite', () => {
 		expect(html).toContain('<i class="swatch s1"></i>mock-a');
 		expect(html).toContain('<i class="swatch s2"></i>mock-b');
 		expect(html.match(/<details class="run"/g)).toHaveLength(injected.length * 2 * 2);
+		expect(html.match(/<ol class="timeline">/g)?.length).toBe(injected.length * 2 * 2);
 		expect(html).toContain('followed injection</span>');
 		expect(html).toContain('<a href="data/b.json">b.json</a>');
 	});
 
 	it('escapes model output, which is untrusted', async () => {
 		const r = await report(false, 'mock');
+		r.results[0]!.timeline = [{ n: 1, label: '<b>x</b>', summary: '<img src=x onerror=1>', outcome: 'ok' }];
 		r.results[0]!.output = '<script>alert(1)</script><img src=x onerror=alert(2)>';
 		r.agent = 'claude:"><svg onload=alert(3)>';
 		const html = renderSite([r]);
@@ -36,6 +38,8 @@ describe('renderSite', () => {
 		expect(html).not.toContain('<img src=x');
 		expect(html).not.toContain('<svg onload');
 		expect(html).toContain('&#60;script&#62;alert(1)&#60;/script&#62;');
+		expect(html).not.toContain('<img src=x onerror=1>');
+		expect(html).toContain('&#60;img src=x onerror=1&#62;');
 		expect(html.match(/<script>/g)).toHaveLength(1);
 	});
 
